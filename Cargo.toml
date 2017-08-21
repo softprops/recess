@@ -3,6 +3,10 @@ name = "recess"
 version = "0.1.0"
 authors = ["softprops <d.tangren@gmail.com>"]
 
+[[bin]]
+doc = false
+name = "recess"
+
 [dependencies]
 hyper-tls = "0.1"
 native-tls = "0.1"
