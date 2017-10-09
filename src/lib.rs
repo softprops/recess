@@ -1,9 +1,50 @@
+//! An interface for interacting with the Rust [playground](https://play.rust-lang.org/)
+//!
+//! # examples
+//!
+//! ```no_run
+//! // recess interfaces
+//! extern crate recess;
+//! // tokio async io
+//! extern crate tokio_core;
+//! // futures combinators
+//! extern crate futures;
+//!
+//! use recess::{Client, CompileRequest};
+//! use futures::Future;
+//! use tokio_core::reactor::Core;
+//!
+//! fn main() {
+//!   let mut core = Core::new().unwrap();
+//!   let client = Client::new(
+//!      &core.handle(),
+//!   );
+//!
+//!   let work = client.compile(CompileRequest::builder(
+//!              r#"fn main() { println!("{}", 1); }"#
+//!            )
+//!           .build().unwrap())
+//!        .and_then(|result| {
+//!            println!("{}", result.stdout);
+//!            println!("{}", result.stderr);
+//!            Ok(())
+//!        });
+//!
+//!   println!("{:#?}", core.run(work))
+//! }
+//! ```
+//!
+//! # Cargo features
+//!
+//! This crate has one Cargo feature, `tls`, which adds HTTPS support via the `Client::new`
+//! constructor. This feature is enabled by default.
+#![warn(missing_docs)]
+
 #[macro_use]
 extern crate derive_builder;
 #[macro_use]
 extern crate error_chain;
 extern crate futures;
-#[macro_use]
 extern crate hyper;
 extern crate serde;
 #[macro_use]
@@ -11,14 +52,19 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate tokio_core;
 extern crate url;
+#[cfg(feature = "tls")]
+extern crate hyper_tls;
 
 use futures::Future as StdFuture;
 use futures::Stream;
 use hyper::{Method, Request};
-use hyper::client::Connect;
+use hyper::client::{Connect, HttpConnector};
 use hyper::header::ContentType;
-use serde::ser::Serialize;
+#[cfg(feature = "tls")]
+use hyper_tls::HttpsConnector;
 use serde::de::DeserializeOwned;
+use serde::ser::Serialize;
+use tokio_core::reactor::Handle;
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct ClientError {
@@ -33,8 +79,10 @@ pub type Future<T> = Box<StdFuture<Item = T, Error = Error>>;
 
 #[derive(Debug, Serialize, Clone, PartialEq)]
 pub enum CrateType {
+    /// Rust binary
     #[serde(rename = "bin")]
     Binary,
+    /// Rust library
     #[serde(rename = "lib")]
     Library,
 }
@@ -45,10 +93,15 @@ impl Default for CrateType {
     }
 }
 
+/// Rustc compilation mode.
+///
+/// The `Default` is `Debug`
 #[derive(Debug, Serialize, Clone, PartialEq)]
 pub enum Mode {
+    /// Debug compilation mode
     #[serde(rename = "debug")]
     Debug,
+    /// Release compilation mode
     #[serde(rename = "release")]
     Release,
 }
@@ -59,12 +112,18 @@ impl Default for Mode {
     }
 }
 
+/// Release train options.
+///
+/// The `Default` is `Stable`
 #[derive(Debug, Serialize, Clone, PartialEq)]
 pub enum Channel {
+    /// stable release
     #[serde(rename = "stable")]
     Stable,
+    /// beta release
     #[serde(rename = "beta")]
     Beta,
+    /// nightly release
     #[serde(rename = "nightly")]
     Nightly,
 }
@@ -76,10 +135,15 @@ impl Default for Channel {
 }
 
 
+/// Assembly flavor.
+///
+/// The `Default` is `Att`
 #[derive(Debug, Serialize, Clone, PartialEq)]
 pub enum AsmFlavor {
+    /// AT&T
     #[serde(rename = "att")]
     Att,
+    /// Intell
     #[serde(rename = "intel")]
     Intel,
 }
@@ -90,12 +154,16 @@ impl Default for AsmFlavor {
     }
 }
 
+/// Rustc backtrace options
 #[derive(Debug, Serialize)]
 pub enum Backtrace {
+    /// No backtraces
     #[serde(rename = "0")]
     Never,
+    /// Always return backtraces
     #[serde(rename = "1")]
     Always,
+    /// Detect when to return backtraces
     #[serde(rename = "2")]
     Auto,
 }
@@ -106,6 +174,7 @@ impl Default for Backtrace {
     }
 }
 
+/// Optimization levels for rustc
 #[derive(Debug, Serialize)]
 pub enum OptLevel {
     #[serde(rename = "0")]
@@ -137,13 +206,15 @@ impl Default for CompileOutput {
 
 pub mod compile;
 // re-export CompileRequest
+
 pub use compile::Request as CompileRequest;
 
 pub mod execute;
 // re-export ExportRequest
+
 pub use execute::Request as ExecuteRequest;
 
-/// rust playground client
+/// Rust playground client
 pub struct Client<C>
 where
     C: Connect + Clone,
@@ -151,16 +222,34 @@ where
     http: hyper::Client<C>,
 }
 
+/// An implementation of Client for HttpsConnectors
+#[cfg(feature = "tls")]
+impl Client<HttpsConnector<HttpConnector>> {
+    /// Creates a new instance of a `Client` using a `hyper::Client`
+    /// preconfigured for tls.
+    ///
+    /// For client customization use `Client::custom` instead
+    pub fn new(handle: &Handle) -> Self {
+        let connector = HttpsConnector::new(4, handle).unwrap();
+        let hyper = hyper::Client::configure()
+            .connector(connector)
+            .keep_alive(true)
+            .build(handle);
+        Client::custom(hyper)
+    }
+}
+
+
 impl<C> Client<C>
 where
     C: Clone + Connect,
 {
-    /// create a new playground
-    pub fn new(http: hyper::Client<C>) -> Self {
+    /// Creates a new playground
+    pub fn custom(http: hyper::Client<C>) -> Self {
         Self { http }
     }
 
-    /// execute rustlang code
+    /// Executes rustlang code
     pub fn execute(&self, req: execute::Request) -> Future<execute::Response> {
         self.request::<execute::Request, execute::Response>(
             "https://play.rust-lang.org/execute",
@@ -168,7 +257,7 @@ where
         )
     }
 
-    /// compile rustlang code
+    /// Compiles rustlang code
     pub fn compile(&self, req: compile::Request) -> Future<compile::Response> {
         self.request::<compile::Request, compile::Response>(
             "https://play.rust-lang.org/compile",
@@ -189,7 +278,9 @@ where
                 let status = response.status();
                 let body = response.body().concat2().map_err(Error::from);
                 body.and_then(move |body| if status.is_success() {
-                    serde_json::from_slice::<O>(&body).map_err(|err| ErrorKind::Codec(err).into())
+                    serde_json::from_slice::<O>(&body).map_err(|err| {
+                        ErrorKind::Codec(err).into()
+                    })
                 } else {
                     match serde_json::from_slice::<ClientError>(&body) {
                         Ok(error) => Err(
@@ -203,40 +294,5 @@ where
                 })
             },
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn compile_builder_defaults() {
-        assert_eq!(
-            CompileBuilder::default().build().unwrap(),
-            Compile {
-                target: CompileOutput::Asm,
-                assembly_flavor: None,
-                channel: Channel::Stable,
-                mode: Mode::Debug,
-                crate_type: CrateType::Library,
-                tests: false,
-                code: String::new(),
-            }
-        )
-    }
-
-    #[test]
-    fn execute_builder_defaults() {
-        assert_eq!(
-            ExecuteBuilder::default().build().unwrap(),
-            Execute {
-                channel: Channel::Stable,
-                mode: Mode::Debug,
-                crate_type: CrateType::Library,
-                tests: false,
-                code: String::new(),
-            }
-        )
     }
 }

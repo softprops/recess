@@ -1,8 +1,8 @@
-use std::io::Error as IoError;
 use hyper::Error as HttpError;
 use hyper::StatusCode;
-use serde_json::error::Error as SerdeError;
 use hyper::error::UriError;
+use serde_json::error::Error as SerdeError;
+use std::io::Error as IoError;
 
 error_chain! {
   errors {

@@ -1,4 +1,6 @@
-use super::{AsmFlavor, CrateType, Channel, CompileOutput, Mode};
+//! Compilation interfaces
+
+use super::{AsmFlavor, Channel, CompileOutput, CrateType, Mode};
 
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, Builder, PartialEq)]
@@ -16,8 +18,12 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn builder() -> RequestBuilder {
-        RequestBuilder::default()
+    /// Returns a new `RequestBuilder` instance configured with code to compile
+    pub fn builder<C>(code: C) -> RequestBuilder
+    where
+        C: Into<String>,
+    {
+        RequestBuilder::default().code(code).clone()
     }
 }
 
@@ -27,4 +33,27 @@ pub struct Response {
     pub code: String,
     pub stdout: String,
     pub stderr: String,
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compile_builder_defaults() {
+        assert_eq!(
+            Request::builder("foo").build().unwrap(),
+            Request {
+                target: CompileOutput::Asm,
+                assembly_flavor: None,
+                channel: Channel::Stable,
+                mode: Mode::Debug,
+                crate_type: CrateType::Binary,
+                tests: false,
+                code: String::from("foo"),
+            }
+        )
+    }
+
 }

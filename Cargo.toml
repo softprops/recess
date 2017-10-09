@@ -2,14 +2,23 @@
 name = "recess"
 version = "0.1.0"
 authors = ["softprops <d.tangren@gmail.com>"]
+description = "Rust playground client"
+documentation = "https://softprops.github.io/recess"
+homepage = "https://github.com/softprops/recess"
+repository = "https://github.com/softprops/recess"
+keywords = ["playground", "crates.io", "api"]
+license = "MIT"
+readme = "README.md"
+
+[badges]
+travis-ci = { repository = "softprops/recess" }
+coveralls = { repository = "softprops/recess" }
 
 [[bin]]
 doc = false
 name = "recess"
 
 [dependencies]
-hyper-tls = "0.1"
-native-tls = "0.1"
 futures = "0.1"
 hyper = "0.11"
 serde = "1.0"
@@ -20,3 +29,11 @@ tokio-timer = "0.1"
 url = "1.5"
 error-chain = "0.10"
 derive_builder = "0.5"
+
+[dependencies.hyper-tls]
+optional = true
+version = "0.1.2"
+
+[features]
+default = ["tls"]
+tls = ["hyper-tls"]
