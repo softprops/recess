@@ -2,6 +2,7 @@
 
 > Extended [play](https://play.rust-lang.org/) time with rust
 
+## [documentation](https://softprops.github.io/recess)
 ## install
 
 ## usage
