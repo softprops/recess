@@ -77,6 +77,9 @@ pub use error::*;
 /// A type alias for futures that may return recess::Error's
 pub type Future<T> = Box<StdFuture<Item = T, Error = Error>>;
 
+/// Type of crate
+///
+/// The `Default` is `Binary`
 #[derive(Debug, Serialize, Clone, PartialEq)]
 pub enum CrateType {
     /// Rust binary
@@ -140,10 +143,10 @@ impl Default for Channel {
 /// The `Default` is `Att`
 #[derive(Debug, Serialize, Clone, PartialEq)]
 pub enum AsmFlavor {
-    /// AT&T
+    /// AT&T assembly
     #[serde(rename = "att")]
     Att,
-    /// Intell
+    /// Intell assembly
     #[serde(rename = "intel")]
     Intel,
 }
@@ -188,6 +191,8 @@ pub enum OptLevel {
 }
 
 /// Compiler output formats
+///
+/// The `Default` is `Asm`
 #[derive(Debug, Serialize, Clone, PartialEq)]
 pub enum CompileOutput {
     #[serde(rename = "asm")]
