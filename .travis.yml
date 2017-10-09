@@ -30,6 +30,7 @@ cache:
   directories:
   - target/debug/deps
   - target/debug/build
+  - "$HOME/.kcov"
 
 addons:
   apt:
