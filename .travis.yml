@@ -11,6 +11,16 @@ matrix:
   allow_failures:
   - rust: nightly
 
+before_install:
+  # install kcov
+  - >
+    if [ ! -d "$HOME/.kcov/bin" ]; then
+      wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
+      tar xzf master.tar.gz && mkdir kcov-master/build && cd kcov-master/build &&
+      cmake -DCMAKE_INSTALL_PREFIX:PATH=$HOME/.kcov .. && make && make install && cd ../..
+    fi
+  - export PATH=$HOME/.kcov/bin:$PATH
+
 script:
 - RUSTFLAGS="$RUSTFLAGS -C link-dead-code" cargo test
 
@@ -31,14 +41,11 @@ addons:
       - libiberty-dev
 
 after_success:
-  - '[ $TRAVIS_RUST_VERSION = stable ] &&
+  - '[ $TRAVIS_EVENT_TYPE != "cron" ] &&
+    [ $TRAVIS_RUST_VERSION = stable ] &&
     [ $TRAVIS_BRANCH = master ] &&
     [ $TRAVIS_PULL_REQUEST = false ] &&
-    (LOCAL="~/.local" && export PATH=$LOCAL/bin:$PATH &&
-    wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
-    tar xzf master.tar.gz && mkdir kcov-master/build && cd kcov-master/build &&
-    cmake -DCMAKE_INSTALL_PREFIX:PATH=$LOCAL .. && make && make install && cd ../.. &&
-    ls target/debug &&
+    (ls target/debug &&
     RUSTFLAGS="-C link-dead-code" cargo test --no-run &&
     for file in target/debug/recess-*; do
        if [[ "${file: -2}" != ".d" ]]; then
@@ -46,7 +53,7 @@ after_success:
          kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file";
        fi;
     done &&
-    kcov --coveralls-id=$TRAVIS_JOB_ID --merge target/cov target/cov/* &&
+    kcov --coveralls-id=$COVERALLS_REPO_TOKEN --merge target/cov target/cov/* &&
     echo "covered") || true'
   - '[ $TRAVIS_RUST_VERSION = stable ] &&
     [ $TRAVIS_BRANCH = master ] &&
