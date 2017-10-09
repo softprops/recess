@@ -74,7 +74,7 @@ struct ClientError {
 mod error;
 pub use error::*;
 
-/// A type alias for futures that may return travis::Error's
+/// A type alias for futures that may return recess::Error's
 pub type Future<T> = Box<StdFuture<Item = T, Error = Error>>;
 
 #[derive(Debug, Serialize, Clone, PartialEq)]
