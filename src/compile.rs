@@ -1,6 +1,32 @@
 //! Compilation interfaces
 
-use super::{AsmFlavor, Channel, CompileOutput, CrateType, Mode};
+use {AsmFlavor, Channel, CompileOutput, CrateType, Mode};
+
+#[derive(Debug, Serialize, PartialEq, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum DemangleAssembly {
+    Demangle,
+    Mangle,
+}
+
+impl Default for DemangleAssembly {
+    fn default() -> Self {
+        DemangleAssembly::Demangle
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum HideAssemblerDirectives {
+    Hide,
+    Show,
+}
+
+impl Default for HideAssemblerDirectives {
+    fn default() -> Self {
+        HideAssemblerDirectives::Hide
+    }
+}
 
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, Builder, PartialEq)]
@@ -9,6 +35,10 @@ pub struct Request {
     target: CompileOutput,
     #[serde(rename = "assemblyFlavor", skip_serializing_if = "Option::is_none")]
     assembly_flavor: Option<AsmFlavor>,
+    #[serde(rename = "demangleAssembly")]
+    demangle_assembly: DemangleAssembly,
+    #[serde(rename = "hideAssemblerDirectives")]
+    hide_assembler_directives: HideAssemblerDirectives,
     channel: Channel,
     mode: Mode,
     #[serde(rename = "crateType")]
@@ -34,7 +64,6 @@ pub struct Response {
     pub stdout: String,
     pub stderr: String,
 }
-
 
 #[cfg(test)]
 mod tests {

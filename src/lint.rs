@@ -1,5 +1,4 @@
-//! Format interfaces
-
+//! Linting interfaces
 
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, PartialEq)]
@@ -8,6 +7,7 @@ pub struct Request {
 }
 
 impl Request {
+    /// Returns a new `RequestBuilder` instance configured with code to compile
     pub fn new<C>(code: C) -> Self
     where
         C: Into<String>,
@@ -19,7 +19,6 @@ impl Request {
 #[derive(Debug, Deserialize)]
 pub struct Response {
     pub success: bool,
-    pub code: String,
     pub stdout: String,
     pub stderr: String,
 }

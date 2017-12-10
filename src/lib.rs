@@ -201,6 +201,8 @@ pub enum CompileOutput {
     Llvm,
     #[serde(rename = "mir")]
     Mir,
+    #[serde(rename = "wasm")]
+    Wasm,
 }
 
 impl Default for CompileOutput {
@@ -218,6 +220,12 @@ pub mod execute;
 // re-export ExportRequest
 
 pub use execute::Request as ExecuteRequest;
+
+pub mod format;
+pub use format::Request as FormatRequest;
+
+pub mod lint;
+pub use lint::Request as LintRequest;
 
 /// Rust playground client
 pub struct Client<C>
@@ -266,6 +274,22 @@ where
     pub fn compile(&self, req: compile::Request) -> Future<compile::Response> {
         self.request::<compile::Request, compile::Response>(
             "https://play.rust-lang.org/compile",
+            req,
+        )
+    }
+
+    /// Formats rustlang code
+    pub fn format(&self, req: format::Request) -> Future<format::Response> {
+        self.request::<format::Request, format::Response>(
+            "https://play.rust-lang.org/format",
+            req,
+        )
+    }
+
+    /// Lint rustlang code
+    pub fn lint(&self, req: lint::Request) -> Future<lint::Response> {
+        self.request::<lint::Request, lint::Response>(
+            "https://play.rust-lang.org/clippy",
             req,
         )
     }
