@@ -1,6 +1,5 @@
 //! Format interfaces
 
-
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, PartialEq)]
 pub struct Request {
@@ -22,26 +21,4 @@ pub struct Response {
     pub code: String,
     pub stdout: String,
     pub stderr: String,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn compile_builder_defaults() {
-        assert_eq!(
-            Request::builder("foo").build().unwrap(),
-            Request {
-                target: CompileOutput::Asm,
-                assembly_flavor: None,
-                channel: Channel::Stable,
-                mode: Mode::Debug,
-                crate_type: CrateType::Binary,
-                tests: false,
-                code: String::from("foo"),
-            }
-        )
-    }
-
 }

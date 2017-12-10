@@ -1,4 +1,3 @@
-extern crate hyper;
 extern crate futures;
 extern crate recess;
 extern crate tokio_core;

@@ -76,6 +76,8 @@ mod tests {
             Request {
                 target: CompileOutput::Asm,
                 assembly_flavor: None,
+                demangle_assembly: DemangleAssembly::Demangle,
+                hide_assembler_directives: HideAssemblerDirectives::Hide,
                 channel: Channel::Stable,
                 mode: Mode::Debug,
                 crate_type: CrateType::Binary,
