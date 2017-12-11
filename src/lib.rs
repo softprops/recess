@@ -201,6 +201,7 @@ pub enum CompileOutput {
     Llvm,
     #[serde(rename = "mir")]
     Mir,
+    /// Only available for the Nightly channel
     #[serde(rename = "wasm")]
     Wasm,
 }
@@ -212,19 +213,13 @@ impl Default for CompileOutput {
 }
 
 pub mod compile;
-// re-export CompileRequest
+pub mod execute;
+pub mod format;
+pub mod lint;
 
 pub use compile::Request as CompileRequest;
-
-pub mod execute;
-// re-export ExportRequest
-
 pub use execute::Request as ExecuteRequest;
-
-pub mod format;
 pub use format::Request as FormatRequest;
-
-pub mod lint;
 pub use lint::Request as LintRequest;
 
 /// Rust playground client

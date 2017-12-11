@@ -5,13 +5,13 @@ use super::{Channel, CrateType, Mode};
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, Builder, PartialEq)]
 #[builder(setter(into), default)]
+#[serde(rename_all = "camelCase")]
 pub struct Request {
     /// rust release channel
     channel: Channel,
     /// compilation mode
     mode: Mode,
     /// crate type
-    #[serde(rename = "crateType")]
     crate_type: CrateType,
     /// contains tests
     tests: bool,
@@ -29,10 +29,14 @@ impl Request {
     }
 }
 
+/// Execute operation response
 #[derive(Debug, Deserialize)]
 pub struct Response {
+    /// Indicates if request was successful or not
     pub success: bool,
+    /// Stdout line ouput
     pub stdout: String,
+    /// Stderr line ouput
     pub stderr: String,
 }
 

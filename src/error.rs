@@ -9,7 +9,10 @@ error_chain! {
       Fault {
           code: StatusCode,
           error: String,
-      }
+      } {
+            display("{}: '{}'", code, error)
+            description(error.as_str())
+          }
   }
   foreign_links {
       Codec(SerdeError);

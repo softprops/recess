@@ -3,11 +3,10 @@ extern crate recess;
 extern crate tokio_core;
 
 use futures::Future;
-use recess::{Channel, Client, CompileOutput, CompileRequest, Error,
-             ExecuteRequest, FormatRequest, LintRequest};
+use recess::*;
 use tokio_core::reactor::Core;
 
-fn run() -> Result<(), Error> {
+fn run() -> Result<()> {
     let mut core = Core::new()?;
     let client = Client::new(&core.handle());
     let work = client
@@ -15,6 +14,9 @@ fn run() -> Result<(), Error> {
             r#"fn main() { println!("{}", if true { true } else { false }); }"#,
         ))
         .and_then(|result| {
+            for line in result.stdout.lines() {
+                println!("{}", line);
+            }
             for line in result.stderr.lines() {
                 println!("{}", line);
             }
@@ -25,5 +27,7 @@ fn run() -> Result<(), Error> {
 }
 
 fn main() {
-    run().unwrap();
+    if let Err(err) = run() {
+        eprintln!("{}", err)
+    }
 }

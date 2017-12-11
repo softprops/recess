@@ -7,6 +7,7 @@ pub struct Request {
 }
 
 impl Request {
+    /// Returns a new `Request` instance configured with code to compile
     pub fn new<C>(code: C) -> Self
     where
         C: Into<String>,
@@ -15,10 +16,15 @@ impl Request {
     }
 }
 
+/// Format operation response
 #[derive(Debug, Deserialize)]
 pub struct Response {
+    /// Indicates if request was successful or not
     pub success: bool,
+    /// The formatted code
     pub code: String,
+    /// Stdout line ouput
     pub stdout: String,
+    /// Stderr line ouput
     pub stderr: String,
 }

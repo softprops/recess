@@ -2,6 +2,7 @@
 
 use {AsmFlavor, Channel, CompileOutput, CrateType, Mode};
 
+/// Demangling options
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum DemangleAssembly {
@@ -15,6 +16,7 @@ impl Default for DemangleAssembly {
     }
 }
 
+/// Assembler visibility options
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum HideAssemblerDirectives {
@@ -31,19 +33,19 @@ impl Default for HideAssemblerDirectives {
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, Builder, PartialEq)]
 #[builder(setter(into), default)]
+#[serde(rename_all = "camelCase")]
 pub struct Request {
+    /// The deserired compiler output format
     target: CompileOutput,
-    #[serde(rename = "assemblyFlavor", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     assembly_flavor: Option<AsmFlavor>,
-    #[serde(rename = "demangleAssembly")]
     demangle_assembly: DemangleAssembly,
-    #[serde(rename = "hideAssemblerDirectives")]
     hide_assembler_directives: HideAssemblerDirectives,
     channel: Channel,
     mode: Mode,
-    #[serde(rename = "crateType")]
     crate_type: CrateType,
     tests: bool,
+    /// code to compile
     code: String,
 }
 
@@ -57,11 +59,16 @@ impl Request {
     }
 }
 
+/// Compile operation response
 #[derive(Debug, Deserialize)]
 pub struct Response {
+    /// Indicates if request was successful or not
     pub success: bool,
+    /// Compiled code
     pub code: String,
+    /// Stdout line ouput
     pub stdout: String,
+    /// Stderr line ouput
     pub stderr: String,
 }
 

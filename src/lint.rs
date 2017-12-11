@@ -7,7 +7,7 @@ pub struct Request {
 }
 
 impl Request {
-    /// Returns a new `RequestBuilder` instance configured with code to compile
+    /// Returns a new `Request` instance configured with code to compile
     pub fn new<C>(code: C) -> Self
     where
         C: Into<String>,
@@ -16,9 +16,13 @@ impl Request {
     }
 }
 
+/// Lint operation response
 #[derive(Debug, Deserialize)]
 pub struct Response {
+    /// Indicates if request was successful or not
     pub success: bool,
+    /// Stdout line ouput
     pub stdout: String,
+    /// Stderr line output
     pub stderr: String,
 }
