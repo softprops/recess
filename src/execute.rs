@@ -1,6 +1,6 @@
 //! Execution interfaces
 
-use super::{Channel, CrateType, Mode};
+use {Channel, CrateType, Mode};
 
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, Builder, PartialEq)]
