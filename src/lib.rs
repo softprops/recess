@@ -119,15 +119,13 @@ impl Default for Mode {
 ///
 /// The `Default` is `Stable`
 #[derive(Debug, Serialize, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum Channel {
     /// stable release
-    #[serde(rename = "stable")]
     Stable,
     /// beta release
-    #[serde(rename = "beta")]
     Beta,
     /// nightly release
-    #[serde(rename = "nightly")]
     Nightly,
 }
 
@@ -142,12 +140,11 @@ impl Default for Channel {
 ///
 /// The `Default` is `Att`
 #[derive(Debug, Serialize, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum AsmFlavor {
     /// AT&T assembly
-    #[serde(rename = "att")]
     Att,
     /// Intell assembly
-    #[serde(rename = "intel")]
     Intel,
 }
 
