@@ -55,6 +55,8 @@ extern crate url;
 #[cfg(feature = "tls")]
 extern crate hyper_tls;
 
+use std::str::FromStr;
+
 use futures::Future as StdFuture;
 use futures::Stream;
 use hyper::{Method, Request};
@@ -96,6 +98,18 @@ impl Default for CrateType {
     }
 }
 
+impl FromStr for CrateType {
+    type Err = ();
+    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+        match s {
+            "bin" => Ok(CrateType::Binary),
+            "lib" => Ok(CrateType::Library),
+            _ => Err(()),
+        }
+    }
+}
+
+
 /// Rustc compilation mode.
 ///
 /// The `Default` is `Debug`
@@ -112,6 +126,17 @@ pub enum Mode {
 impl Default for Mode {
     fn default() -> Self {
         Mode::Debug
+    }
+}
+
+impl FromStr for Mode {
+    type Err = ();
+    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+        match s {
+            "debug" => Ok(Mode::Debug),
+            "release" => Ok(Mode::Release),
+            _ => Err(()),
+        }
     }
 }
 
@@ -135,6 +160,17 @@ impl Default for Channel {
     }
 }
 
+impl FromStr for Channel {
+    type Err = ();
+    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+        match s {
+            "stable" => Ok(Channel::Stable),
+            "beta" => Ok(Channel::Beta),
+            "nightly" => Ok(Channel::Nightly),
+            _ => Err(()),
+        }
+    }
+}
 
 /// Assembly flavor.
 ///
@@ -206,6 +242,19 @@ pub enum CompileOutput {
 impl Default for CompileOutput {
     fn default() -> Self {
         CompileOutput::Asm
+    }
+}
+
+impl FromStr for CompileOutput {
+    type Err = ();
+    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+        match s {
+            "asm" => Ok(CompileOutput::Asm),
+            "llvm-ir" => Ok(CompileOutput::Llvm),
+            "mir" => Ok(CompileOutput::Mir),
+            "wasm" => Ok(CompileOutput::Wasm),
+            _ => Err(()),
+        }
     }
 }
 

@@ -1,5 +1,8 @@
 //! Format interfaces
 
+// https://github.com/colin-kiegel/rust-derive-builder/issues/104
+#![allow(unused_mut)]
+
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, PartialEq)]
 pub struct Request {

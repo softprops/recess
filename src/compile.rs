@@ -1,5 +1,8 @@
 //! Compilation interfaces
 
+// https://github.com/colin-kiegel/rust-derive-builder/issues/104
+#![allow(unused_mut)]
+
 use {AsmFlavor, Channel, CompileOutput, CrateType, Mode};
 
 /// Demangling options
@@ -35,7 +38,7 @@ impl Default for HideAssemblerDirectives {
 #[builder(setter(into), default)]
 #[serde(rename_all = "camelCase")]
 pub struct Request {
-    /// The deserired compiler output format
+    /// The desired compiler output format
     target: CompileOutput,
     #[serde(skip_serializing_if = "Option::is_none")]
     assembly_flavor: Option<AsmFlavor>,

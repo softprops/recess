@@ -19,6 +19,7 @@ doc = false
 name = "recess"
 
 [dependencies]
+clap  = "2.27"
 futures = "0.1"
 hyper = "0.11"
 serde = "1.0"
