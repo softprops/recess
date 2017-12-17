@@ -16,9 +16,8 @@ fn run(matches: ArgMatches<'static>) -> Result<()> {
     let client = Client::new(&core.handle());
     match matches.subcommand_name() {
         Some("compile") => {
-            let compile_matches =
-                matches.subcommand_matches("compile").unwrap();
-            let src = match compile_matches.value_of("src").unwrap() {
+            let sub_matches = matches.subcommand_matches("compile").unwrap();
+            let src = match sub_matches.value_of("src").unwrap() {
                 "-" => {
                     let mut buffer = String::new();
                     stdin().read_line(&mut buffer).expect(
@@ -31,27 +30,25 @@ fn run(matches: ArgMatches<'static>) -> Result<()> {
 
             let mut options = CompileRequest::builder(src);
 
-            for chan in compile_matches.value_of("channel").and_then(|chan| {
-                chan.parse::<Channel>().ok()
+            for value in sub_matches.value_of("channel").and_then(|s| {
+                s.parse::<Channel>().ok()
             })
             {
-                options.channel(chan);
+                options.channel(value);
             }
 
-            for tar in compile_matches.value_of("target").and_then(|target| {
-                target.parse::<CompileOutput>().ok()
+            for value in sub_matches.value_of("target").and_then(|s| {
+                s.parse::<CompileOutput>().ok()
             })
             {
-                options.target(tar);
+                options.target(value);
             }
 
-            for ct in compile_matches.value_of("crate_type").and_then(
-                |target| {
-                    target.parse::<CrateType>().ok()
-                },
-            )
+            for value in sub_matches.value_of("crate_type").and_then(|s| {
+                s.parse::<CrateType>().ok()
+            })
             {
-                options.crate_type(ct);
+                options.crate_type(value);
             }
 
             let f = client.compile(options.build()?).and_then(|result| {
