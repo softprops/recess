@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Request","Parameters for compiling rustlang code"],["Response","Format operation response"]]});
