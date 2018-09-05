@@ -1,170 +1,172 @@
+extern crate clap;
 extern crate futures;
 extern crate recess;
-extern crate tokio_core;
-extern crate clap;
+extern crate tokio;
+#[macro_use]
+extern crate structopt;
 
 use std::io::stdin;
 
-use clap::{App, Arg, ArgMatches, SubCommand};
 use futures::Future;
-use tokio_core::reactor::Core;
+use recess::compile::Target;
+use recess::{
+    Channel, Client, CompileRequest, CrateType, ExecuteRequest, FormatRequest,
+};
+use structopt::StructOpt;
+use tokio::runtime::Runtime;
 
-use recess::*;
-
-fn src<'a>(matches: &'a ArgMatches<'a>) -> String {
-    match matches.value_of("src").unwrap() {
-        "-" => {
-            let mut buffer = String::new();
-            stdin().read_line(&mut buffer).expect("failed to read line");
-            buffer
-        }
-        src => src.to_string(),
-    }
+/// CLI options
+#[derive(StructOpt, PartialEq, Debug)]
+#[structopt(name = "recess", about = "Rust playground cli")]
+enum Options {
+    #[structopt(
+        name = "execute", alias = "exec", about = "Execute source code"
+    )]
+    Execute {
+        #[structopt(short = "s", long = "src")]
+        code: String,
+        #[structopt(
+            short = "c",
+            long = "channel",
+            raw(possible_values = "&Channel::variants()")
+        )]
+        channel: Option<Channel>,
+        #[structopt(
+            long = "crate_type", raw(possible_values = "&CrateType::variants()")
+        )]
+        crate_type: Option<CrateType>,
+    },
+    #[structopt(name = "compile", about = "Compile source code")]
+    Compile {
+        #[structopt(short = "s", long = "src")]
+        code: String,
+        #[structopt(
+            short = "t",
+            long = "target",
+            raw(possible_values = "&Target::variants()")
+        )]
+        target: Option<Target>,
+        #[structopt(
+            short = "c",
+            long = "channel",
+            raw(possible_values = "&Channel::variants()")
+        )]
+        channel: Option<Channel>,
+        #[structopt(
+            long = "crate_type", raw(possible_values = "&CrateType::variants()")
+        )]
+        crate_type: Option<CrateType>,
+    },
+    #[structopt(name = "format", alias = "fmt", about = "Format source code")]
+    Format {
+        #[structopt(short = "s", long = "src")]
+        code: String,
+    },
 }
 
-fn run(matches: ArgMatches<'static>) -> Result<()> {
-    let mut core = Core::new()?;
-    let client = Client::new(&core.handle());
-    match matches.subcommand_name() {
-        Some("compile") => {
-            let sub_matches = matches.subcommand_matches("compile").unwrap();
-            let mut options = CompileRequest::builder(src(sub_matches));
-
-            for value in sub_matches.value_of("channel").and_then(|s| {
-                s.parse::<Channel>().ok()
-            })
-            {
-                options.channel(value);
-            }
-
-            for value in sub_matches.value_of("target").and_then(|s| {
-                s.parse::<CompileOutput>().ok()
-            })
-            {
-                options.target(value);
-            }
-
-            for value in sub_matches.value_of("crate_type").and_then(|s| {
-                s.parse::<CrateType>().ok()
-            })
-            {
-                options.crate_type(value);
-            }
-
-            let f = client.compile(options.build()?).and_then(|result| {
-                for line in result.code.lines() {
-                    println!("{}", line);
-                }
-                for line in result.stdout.lines() {
-                    println!("{}", line);
-                }
-                for line in result.stderr.lines() {
-                    println!("{}", line);
-                }
-                Ok(())
-            });
-
-            core.run(f).map_err(recess::Error::from).map(|_| ())
-        }
-        Some("exec") => Ok(()),
-        Some("fmt") => {
-            let sub_matches = matches.subcommand_matches("fmt").unwrap();
-            let options = FormatRequest::new(src(sub_matches));
-            let f = client.format(options).and_then(|result| {
-                for line in result.code.lines() {
-                    println!("{}", line);
-                }
-                for line in result.stdout.lines() {
-                    println!("{}", line);
-                }
-                for line in result.stderr.lines() {
-                    println!("{}", line);
-                }
-                Ok(())
-            });
-
-            core.run(f).map_err(recess::Error::from).map(|_| ())
-        }
-        Some("lint") => Ok(()),
-        _ => Ok(()),
+fn src(code: String) -> String {
+    if code != "-" {
+        return code;
     }
+    let mut buffer = String::new();
+    stdin().read_line(&mut buffer).expect("failed to read line");
+    buffer
 }
 
 fn main() {
-    if let Err(err) = run(cli().get_matches()) {
+    let mut runtime = Runtime::new().expect("failed to initialize runtime");
+    let result = match Options::from_args() {
+        Options::Execute {
+            code,
+            channel,
+            crate_type,
+        } => {
+            let mut options = ExecuteRequest::builder(src(code));
+
+            for c in channel {
+                options.channel(c);
+            }
+            for t in crate_type {
+                options.crate_type(t);
+            }
+
+            let response = Client::new()
+                .execute(options.build().unwrap())
+                .and_then(|result| {
+                    for line in result.stdout.lines() {
+                        println!("{}", line);
+                    }
+                    for line in result.stderr.lines() {
+                        eprintln!("{}", line);
+                    }
+                    Ok(())
+                });
+
+            runtime
+                .block_on(response)
+                .map_err(recess::Error::from)
+                .map(|_| ())
+        }
+        Options::Compile {
+            code,
+            target,
+            channel,
+            crate_type,
+        } => {
+            let mut options = CompileRequest::builder(src(code));
+            for t in target {
+                options.target(t);
+            }
+            for c in channel {
+                options.channel(c);
+            }
+            for t in crate_type {
+                options.crate_type(t);
+            }
+
+            let response = Client::new()
+                .compile(options.build().unwrap())
+                .and_then(|result| {
+                    for line in result.code.lines() {
+                        println!("{}", line);
+                    }
+                    for line in result.stdout.lines() {
+                        println!("{}", line);
+                    }
+                    for line in result.stderr.lines() {
+                        eprintln!("{}", line);
+                    }
+                    Ok(())
+                });
+
+            runtime
+                .block_on(response)
+                .map_err(recess::Error::from)
+                .map(|_| ())
+        }
+        Options::Format { code } => {
+            let response = Client::new()
+                .format(FormatRequest::new(src(code)))
+                .and_then(|result| {
+                    for line in result.code.lines() {
+                        println!("{}", line);
+                    }
+                    for line in result.stdout.lines() {
+                        println!("{}", line);
+                    }
+                    for line in result.stderr.lines() {
+                        eprintln!("{}", line);
+                    }
+                    Ok(())
+                });
+            runtime
+                .block_on(response)
+                .map_err(recess::Error::from)
+                .map(|_| ())
+        }
+    };
+
+    if let Err(err) = result {
         eprintln!("{}", err)
     }
-}
-
-fn cli() -> App<'static, 'static> {
-    App::new(env!("CARGO_PKG_NAME"))
-        .about("rust playground cli")
-        .version(env!("CARGO_PKG_VERSION"))
-        .subcommand(
-            SubCommand::with_name("compile")
-                .about("compiles rust source code")
-                .arg(
-                    Arg::with_name("target")
-                        .long("target")
-                        .help("compile output target")
-                        .possible_values(&["asm","llvm-ir", "mir","wasm"])
-                        .value_name("target")
-                        .takes_value(true)
-                )
-                .arg(
-                    Arg::with_name("channel")
-                        .long("channel")
-                        .help("rustc channel")
-                        .possible_values(&["stable", "beta", "nightly"])
-                        .value_name("channel")
-                        .takes_value(true)
-                ).arg(
-                    Arg::with_name("crate_type")
-                        .long("crate_type")
-                        .help("crate type")
-                        .possible_values(&["lib", "bin"])
-                        .value_name("crate_type")
-                        .takes_value(true)
-                )
-                .arg(
-                    Arg::with_name("src")
-                        .help("code to compile. code is read from std in if not provided")
-                        .takes_value(true)
-                        .required(true)
-                        .value_name("src"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("exec")
-                .about("executes rust source code")
-                .arg(
-                    Arg::with_name("src")
-                        .help("code to compile. code is read from std in if not provided")
-                        .takes_value(true)
-                        .required(true)
-                        .value_name("src"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("fmt")
-                .about("formats rust source code")
-                .arg(
-                    Arg::with_name("src")
-                        .help("code to compile. code is read from std in if not provided")
-                        .takes_value(true)
-                        .required(true)
-                        .value_name("src"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("lint")
-                .about("lints rust source code")
-                .arg(
-                    Arg::with_name("src")
-                        .help("code to compile. code is read from std in if not provided")
-                        .takes_value(true)
-                        .required(true)
-                        .value_name("src"),
-                ),
-        )
 }

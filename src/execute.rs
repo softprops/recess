@@ -5,6 +5,7 @@
 
 use {Channel, CrateType, Mode};
 
+// https://github.com/integer32llc/rust-playground/blob/4a49170ea46c4bae244a32b7e460534b56ccf02c/ui/src/main.rs#L551-L563
 /// Parameters for compiling rustlang code
 #[derive(Debug, Serialize, Default, Builder, PartialEq)]
 #[builder(setter(into), default)]
@@ -18,6 +19,8 @@ pub struct Request {
     crate_type: CrateType,
     /// contains tests
     tests: bool,
+    #[serde(default)]
+    backtrace: bool,
     /// source code
     code: String,
 }
@@ -32,6 +35,7 @@ impl Request {
     }
 }
 
+// https://github.com/integer32llc/rust-playground/blob/4a49170ea46c4bae244a32b7e460534b56ccf02c/ui/src/main.rs#L565-L570
 /// Execute operation response
 #[derive(Debug, Deserialize)]
 pub struct Response {
@@ -56,6 +60,7 @@ mod tests {
                 mode: Mode::Debug,
                 crate_type: CrateType::Binary,
                 tests: false,
+                backtrace: false,
                 code: String::from("foo"),
             }
         )

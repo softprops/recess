@@ -43,41 +43,53 @@
 #[macro_use]
 extern crate derive_builder;
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 extern crate futures;
 extern crate hyper;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(feature = "tls")]
+extern crate hyper_tls;
 extern crate serde_json;
 extern crate tokio_core;
 extern crate url;
-#[cfg(feature = "tls")]
-extern crate hyper_tls;
 
 use std::str::FromStr;
 
 use futures::Future as StdFuture;
 use futures::Stream;
-use hyper::{Method, Request};
-use hyper::client::{Connect, HttpConnector};
-use hyper::header::ContentType;
+use hyper::client::connect::Connect;
+use hyper::client::HttpConnector;
+use hyper::{Body, Method, Request, Uri};
+//use hyper::header::ContentType;
 #[cfg(feature = "tls")]
 use hyper_tls::HttpsConnector;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
-use tokio_core::reactor::Handle;
+
+pub mod clippy;
+pub mod compile;
+pub mod execute;
+pub mod format;
+pub mod lint;
+
+pub use clippy::Request as ClippyRequest;
+pub use compile::Request as CompileRequest;
+pub use execute::Request as ExecuteRequest;
+pub use format::Request as FormatRequest;
+pub use lint::Request as LintRequest;
+
+mod error;
+pub use error::*;
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct ClientError {
     pub error: String,
 }
 
-mod error;
-pub use error::*;
-
 /// A type alias for futures that may return recess::Error's
-pub type Future<T> = Box<StdFuture<Item = T, Error = Error>>;
+pub type Future<T> = Box<StdFuture<Item = T, Error = Error> + Send>;
 
 /// Type of crate
 ///
@@ -92,6 +104,12 @@ pub enum CrateType {
     Library,
 }
 
+impl CrateType {
+    pub fn variants() -> &'static [&'static str] {
+        &["bin", "lib"]
+    }
+}
+
 impl Default for CrateType {
     fn default() -> Self {
         CrateType::Binary
@@ -99,16 +117,15 @@ impl Default for CrateType {
 }
 
 impl FromStr for CrateType {
-    type Err = ();
+    type Err = &'static str;
     fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
         match s {
             "bin" => Ok(CrateType::Binary),
             "lib" => Ok(CrateType::Library),
-            _ => Err(()),
+            _ => Err("invalid crate_type"),
         }
     }
 }
-
 
 /// Rustc compilation mode.
 ///
@@ -130,12 +147,12 @@ impl Default for Mode {
 }
 
 impl FromStr for Mode {
-    type Err = ();
+    type Err = &'static str;
     fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
         match s {
             "debug" => Ok(Mode::Debug),
             "release" => Ok(Mode::Release),
-            _ => Err(()),
+            _ => Err("invalid mode"),
         }
     }
 }
@@ -154,6 +171,12 @@ pub enum Channel {
     Nightly,
 }
 
+impl Channel {
+    pub fn variants() -> &'static [&'static str] {
+        &["stable", "beta", "nightly"]
+    }
+}
+
 impl Default for Channel {
     fn default() -> Self {
         Channel::Stable
@@ -161,13 +184,13 @@ impl Default for Channel {
 }
 
 impl FromStr for Channel {
-    type Err = ();
+    type Err = &'static str;
     fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
         match s {
             "stable" => Ok(Channel::Stable),
             "beta" => Ok(Channel::Beta),
             "nightly" => Ok(Channel::Nightly),
-            _ => Err(()),
+            _ => Err("invalid channel"),
         }
     }
 }
@@ -223,56 +246,12 @@ pub enum OptLevel {
     O3,
 }
 
-/// Compiler output formats
-///
-/// The `Default` is `Asm`
-#[derive(Debug, Serialize, Clone, PartialEq)]
-pub enum CompileOutput {
-    #[serde(rename = "asm")]
-    Asm,
-    #[serde(rename = "llvm-ir")]
-    Llvm,
-    #[serde(rename = "mir")]
-    Mir,
-    /// Only available for the Nightly channel
-    #[serde(rename = "wasm")]
-    Wasm,
-}
-
-impl Default for CompileOutput {
-    fn default() -> Self {
-        CompileOutput::Asm
-    }
-}
-
-impl FromStr for CompileOutput {
-    type Err = ();
-    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
-        match s {
-            "asm" => Ok(CompileOutput::Asm),
-            "llvm-ir" => Ok(CompileOutput::Llvm),
-            "mir" => Ok(CompileOutput::Mir),
-            "wasm" => Ok(CompileOutput::Wasm),
-            _ => Err(()),
-        }
-    }
-}
-
-pub mod compile;
-pub mod execute;
-pub mod format;
-pub mod lint;
-
-pub use compile::Request as CompileRequest;
-pub use execute::Request as ExecuteRequest;
-pub use format::Request as FormatRequest;
-pub use lint::Request as LintRequest;
-
 /// Rust playground client
-pub struct Client<C>
+pub struct Client<C = HttpsConnector<HttpConnector>>
 where
-    C: Connect + Clone,
+    C: Connect + Clone + 'static,
 {
+    host: Uri,
     http: hyper::Client<C>,
 }
 
@@ -283,28 +262,24 @@ impl Client<HttpsConnector<HttpConnector>> {
     /// preconfigured for tls.
     ///
     /// For client customization use `Client::custom` instead
-    pub fn new(handle: &Handle) -> Self {
-        let connector = HttpsConnector::new(4, handle).unwrap();
-        let hyper = hyper::Client::configure()
-            .connector(connector)
-            .keep_alive(true)
-            .build(handle);
-        Client::custom(hyper)
+    pub fn new() -> Self {
+        let connector = HttpsConnector::new(4).unwrap();
+        let hyper = hyper::Client::builder().keep_alive(true).build(connector);
+        Client::custom("https://play.rust-lang.org".parse().unwrap(), hyper)
     }
 }
 
-
 impl<C> Client<C>
 where
-    C: Clone + Connect,
+    C: Clone + Connect + 'static,
 {
     /// Creates a new playground
-    pub fn custom(http: hyper::Client<C>) -> Self {
-        Self { http }
+    pub fn custom(host: Uri, http: hyper::Client<C>) -> Self {
+        Self { host, http }
     }
 
     /// Executes rustlang code
-    pub fn execute(&self, req: execute::Request) -> Future<execute::Response> {
+    pub fn execute(&self, req: ExecuteRequest) -> Future<execute::Response> {
         self.request::<execute::Request, execute::Response>(
             "https://play.rust-lang.org/execute",
             req,
@@ -312,8 +287,8 @@ where
     }
 
     /// Compiles rustlang code
-    pub fn compile(&self, req: compile::Request) -> Future<compile::Response> {
-        self.request::<compile::Request, compile::Response>(
+    pub fn compile(&self, req: CompileRequest) -> Future<compile::Response> {
+        self.request::<CompileRequest, compile::Response>(
             "https://play.rust-lang.org/compile",
             req,
         )
@@ -338,28 +313,29 @@ where
     fn request<I, O>(&self, url: &str, input: I) -> Future<O>
     where
         I: Serialize,
-        O: DeserializeOwned + 'static,
+        O: DeserializeOwned + 'static + Send,
     {
-        let mut req = Request::new(Method::Post, url.parse().unwrap());
-        req.headers_mut().set(ContentType::json());
-        req.set_body(serde_json::to_vec(&input).unwrap());
+        let mut builder = Request::builder();
+        builder.method(Method::POST);
+        builder.uri(url);
+        builder.header("Content-Type", "application/json");
+        //req.headers_mut().set(ContentType::json());
+        let req = builder
+            .body(Body::from(serde_json::to_vec(&input).unwrap()))
+            .unwrap();
         Box::new(self.http.request(req).map_err(Error::from).and_then(
             |response| {
                 let status = response.status();
-                let body = response.body().concat2().map_err(Error::from);
-                body.and_then(move |body| if status.is_success() {
-                    serde_json::from_slice::<O>(&body).map_err(|err| {
-                        ErrorKind::Codec(err).into()
-                    })
-                } else {
-                    match serde_json::from_slice::<ClientError>(&body) {
-                        Ok(error) => Err(
-                            ErrorKind::Fault {
-                                code: status,
-                                error: error.error,
-                            }.into(),
-                        ),
-                        Err(error) => Err(ErrorKind::Codec(error).into()),
+                let body = response.into_body().concat2().map_err(Error::from);
+                body.and_then(move |body| {
+                    if status.is_success() {
+                        serde_json::from_slice::<O>(&body)
+                            .map_err(|err| Error::Codec(err).into())
+                    } else {
+                        match serde_json::from_slice::<ClientError>(&body) {
+                            Ok(_) => Err(Error::Fault(status).into()),
+                            Err(error) => Err(Error::Codec(error).into()),
+                        }
                     }
                 })
             },
